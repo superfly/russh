@@ -119,6 +119,8 @@ pub enum PublicKey {
     #[doc(hidden)]
     Ed25519(ed25519_dalek::VerifyingKey),
     #[doc(hidden)]
+    Certificate(ssh_key::Certificate),
+    #[doc(hidden)]
     #[cfg(feature = "openssl")]
     RSA {
         key: OpenSSLPKey,
@@ -241,6 +243,12 @@ impl PublicKey {
                     .map_err(|_| Error::CouldNotReadKey)?;
                 Ok(PublicKey::P521(key))
             }
+            b"ssh-ed25519-cert-v01@openssh.com" => ssh_key::Certificate::from_bytes(pubkey)
+                .map(PublicKey::Certificate)
+                .map_err(|e| {
+                    log::error!("could not part cert from bytes: {e}");
+                    Error::CouldNotReadKey
+                }),
             _ => Err(Error::CouldNotReadKey),
         }
     }
@@ -253,6 +261,17 @@ impl PublicKey {
             PublicKey::RSA { ref hash, .. } => hash.name().0,
             PublicKey::P256(_) => ECDSA_SHA2_NISTP256.0,
             PublicKey::P521(_) => ECDSA_SHA2_NISTP521.0,
+            PublicKey::Certificate(ref c) => match c.algorithm() {
+                ssh_key::Algorithm::Ecdsa { curve } => match curve {
+                    ssh_key::EcdsaCurve::NistP256 => ECDSA_SHA2_NISTP256.0,
+                    ssh_key::EcdsaCurve::NistP521 => ECDSA_SHA2_NISTP521.0,
+                    ssh_key::EcdsaCurve::NistP384 => unimplemented!(),
+                },
+                ssh_key::Algorithm::Ed25519 | ssh_key::Algorithm::SkEd25519 => ED25519.0,
+                ssh_key::Algorithm::Rsa { hash } => hash.map(|h| h.as_str()).unwrap_or("ssh-rsa"),
+                ssh_key::Algorithm::SkEcdsaSha2NistP256 => ECDSA_SHA2_NISTP256.0,
+                _ => unimplemented!(),
+            },
         }
     }
 
@@ -329,6 +348,17 @@ impl PublicKey {
                     .verify(buffer, &signature)
                     .is_ok()
             }
+            PublicKey::Certificate(ref cert) => match cert.public_key() {
+                ssh_key::public::KeyData::Ecdsa(_) => todo!(),
+                ssh_key::public::KeyData::Ed25519(k) => {
+                    match ssh_key::Signature::new(ssh_key::Algorithm::Ed25519, sig) {
+                        Ok(sig) => k.verify(buffer, &sig).is_ok(),
+                        Err(_) => false,
+                    }
+                }
+                ssh_key::public::KeyData::Rsa(_) => todo!(),
+                _ => unimplemented!(),
+            },
         }
     }
 

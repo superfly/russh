@@ -550,6 +550,41 @@ fn key_blob(public: &key::PublicKey, buf: &mut CryptoVec) -> Result<(), Error> {
             #[allow(clippy::indexing_slicing)] // length is known
             BigEndian::write_u32(&mut buf[5..], (len1 - len0) as u32);
         }
+        PublicKey::Certificate(ref cert) => {
+            match cert.public_key() {
+                ssh_key::public::KeyData::Ed25519(p) => {
+                    buf.extend(&[0, 0, 0, 0]);
+                    let len0 = buf.len();
+                    buf.extend_ssh_string(b"ssh-ed25519");
+                    buf.extend_ssh_string(p.0.as_ref());
+                    let len1 = buf.len();
+                    #[allow(clippy::indexing_slicing)] // length is known
+                    BigEndian::write_u32(&mut buf[5..], (len1 - len0) as u32);
+                }
+                ssh_key::public::KeyData::Ecdsa(ecdsa) => match ecdsa {
+                    ssh_key::public::EcdsaPublicKey::NistP256(p) => {
+                        buf.extend_ssh_string(p.as_bytes())
+                    }
+                    ssh_key::public::EcdsaPublicKey::NistP521(p) => {
+                        buf.extend_ssh_string(p.as_bytes())
+                    }
+                    ssh_key::public::EcdsaPublicKey::NistP384(_) => unimplemented!(),
+                },
+                ssh_key::public::KeyData::Rsa(rsa) => {
+                    buf.extend(&[0, 0, 0, 0]);
+                    let len0 = buf.len();
+                    buf.extend_ssh_string(b"ssh-rsa");
+                    buf.extend_ssh_mpint(&rsa.e.as_bytes());
+                    buf.extend_ssh_mpint(&rsa.n.as_bytes());
+                    let len1 = buf.len();
+                    #[allow(clippy::indexing_slicing)] // length is known
+                    BigEndian::write_u32(&mut buf[5..], (len1 - len0) as u32);
+                }
+                _ => {
+                    unimplemented!()
+                }
+            }
+        }
         PublicKey::P256(_) | PublicKey::P521(_) => {
             buf.extend_ssh_string(&public.public_key_bytes());
         }

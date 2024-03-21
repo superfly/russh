@@ -145,6 +145,8 @@ pub enum Error {
 
     #[error("Base64 decoding error: {0}")]
     Decode(#[from] data_encoding::DecodeError),
+    #[error("OpenSSH cert decoding error: {0}")]
+    CertDecode(#[from] ssh_key::Error),
     #[error("ASN1 decoding error: {0}")]
     ASN1(yasna::ASN1Error),
     #[error("Environment variable `{0}` not found")]
@@ -248,6 +250,42 @@ impl PublicKeyBase64 for key::PublicKey {
                 s.extend_ssh_string(b"nistp521");
                 s.extend_ssh_string(&publickey.to_sec1_bytes());
             }
+            key::PublicKey::Certificate(ref cert) => match cert.public_key() {
+                ssh_key::public::KeyData::Ecdsa(curve) => match curve {
+                    ssh_key::public::EcdsaPublicKey::NistP256(publickey) => {
+                        use encoding::Encoding;
+                        s.extend_ssh_string(b"ecdsa-sha2-nistp256");
+                        s.extend_ssh_string(b"nistp256");
+                        s.extend_ssh_string(publickey.as_bytes());
+                    }
+                    ssh_key::public::EcdsaPublicKey::NistP521(publickey) => {
+                        use encoding::Encoding;
+                        s.extend_ssh_string(b"ecdsa-sha2-nistp521");
+                        s.extend_ssh_string(b"nistp521");
+                        s.extend_ssh_string(publickey.as_bytes());
+                    }
+                    ssh_key::public::EcdsaPublicKey::NistP384(_) => unimplemented!(),
+                },
+                ssh_key::public::KeyData::Ed25519(publickey) => {
+                    let name = b"ssh-ed25519";
+                    #[allow(clippy::unwrap_used)] // Vec<>.write can't fail
+                    s.write_u32::<BigEndian>(name.len() as u32).unwrap();
+                    s.extend_from_slice(name);
+                    #[allow(clippy::unwrap_used)] // Vec<>.write can't fail
+                    s.write_u32::<BigEndian>(publickey.0.len() as u32).unwrap();
+                    s.extend_from_slice(publickey.0.as_ref());
+                }
+                ssh_key::public::KeyData::Rsa(rsa) => {
+                    use encoding::Encoding;
+                    let name = b"ssh-rsa";
+                    #[allow(clippy::unwrap_used)] // Vec<>.write_all can't fail
+                    s.write_u32::<BigEndian>(name.len() as u32).unwrap();
+                    s.extend_from_slice(name);
+                    s.extend_ssh_mpint(rsa.e.as_bytes());
+                    s.extend_ssh_mpint(rsa.n.as_bytes());
+                }
+                _ => unimplemented!(),
+            },
         }
         s
     }
