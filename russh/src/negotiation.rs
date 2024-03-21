@@ -18,7 +18,7 @@ use log::debug;
 use rand::RngCore;
 use russh_cryptovec::CryptoVec;
 use russh_keys::encoding::{Encoding, Reader};
-use russh_keys::key;
+use russh_keys::key::{self};
 use russh_keys::key::{KeyPair, PublicKey};
 
 use crate::cipher::CIPHERS;
@@ -139,9 +139,8 @@ impl Named for () {
     }
 }
 
-#[cfg(feature = "openssl")]
 use russh_keys::key::SSH_RSA;
-use russh_keys::key::{ECDSA_SHA2_NISTP256, ECDSA_SHA2_NISTP521, ED25519};
+use russh_keys::key::{ECDSA_SHA2_NISTP256, ECDSA_SHA2_NISTP384, ECDSA_SHA2_NISTP521, ED25519};
 
 impl Named for PublicKey {
     fn name(&self) -> &'static str {
@@ -151,6 +150,16 @@ impl Named for PublicKey {
             PublicKey::P521(_) => ECDSA_SHA2_NISTP521.0,
             #[cfg(feature = "openssl")]
             PublicKey::RSA { .. } => SSH_RSA.0,
+            PublicKey::Certificate(ref cert) => match cert.algorithm() {
+                ssh_key::Algorithm::Ecdsa { curve } => match curve {
+                    ssh_key::EcdsaCurve::NistP256 => ECDSA_SHA2_NISTP256.0,
+                    ssh_key::EcdsaCurve::NistP384 => ECDSA_SHA2_NISTP384.0,
+                    ssh_key::EcdsaCurve::NistP521 => ECDSA_SHA2_NISTP521.0,
+                },
+                ssh_key::Algorithm::Ed25519 => ED25519.0,
+                ssh_key::Algorithm::Rsa { .. } => SSH_RSA.0,
+                _ => unimplemented!(),
+            },
         }
     }
 }

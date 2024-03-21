@@ -39,6 +39,8 @@ impl AsRef<str> for Name {
 
 /// The name of the ecdsa-sha2-nistp256 algorithm for SSH.
 pub const ECDSA_SHA2_NISTP256: Name = Name("ecdsa-sha2-nistp256");
+/// The name of the ecdsa-sha2-nistp384 algorithm for SSH.
+pub const ECDSA_SHA2_NISTP384: Name = Name("ecdsa-sha2-nistp384");
 /// The name of the ecdsa-sha2-nistp521 algorithm for SSH.
 pub const ECDSA_SHA2_NISTP521: Name = Name("ecdsa-sha2-nistp521");
 /// The name of the Ed25519 algorithm for SSH.

@@ -258,13 +258,18 @@ impl PublicKeyBase64 for key::PublicKey {
                         s.extend_ssh_string(b"nistp256");
                         s.extend_ssh_string(publickey.as_bytes());
                     }
+                    ssh_key::public::EcdsaPublicKey::NistP384(publickey) => {
+                        use encoding::Encoding;
+                        s.extend_ssh_string(b"ecdsa-sha2-nistp384");
+                        s.extend_ssh_string(b"nistp384");
+                        s.extend_ssh_string(publickey.as_bytes());
+                    }
                     ssh_key::public::EcdsaPublicKey::NistP521(publickey) => {
                         use encoding::Encoding;
                         s.extend_ssh_string(b"ecdsa-sha2-nistp521");
                         s.extend_ssh_string(b"nistp521");
                         s.extend_ssh_string(publickey.as_bytes());
                     }
-                    ssh_key::public::EcdsaPublicKey::NistP384(_) => unimplemented!(),
                 },
                 ssh_key::public::KeyData::Ed25519(publickey) => {
                     let name = b"ssh-ed25519";

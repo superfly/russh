@@ -44,6 +44,27 @@ impl PubKey for PublicKey {
                 buffer.extend_ssh_mpint(&e);
                 buffer.extend_ssh_mpint(&n);
             }
+            PublicKey::Certificate(ref cert) => match cert.public_key() {
+                ssh_key::public::KeyData::Ecdsa(_) => {
+                    buffer.extend_ssh_string(&self.public_key_bytes());
+                }
+                ssh_key::public::KeyData::Ed25519(public) => {
+                    buffer.push_u32_be((ED25519.0.len() + public.0.len() + 8) as u32);
+                    buffer.extend_ssh_string(ED25519.0.as_bytes());
+                    buffer.extend_ssh_string(public.0.as_ref());
+                }
+                ssh_key::public::KeyData::Rsa(rsa) => {
+                    #[allow(clippy::unwrap_used)] // type known
+                    let e = rsa.e.as_bytes().to_vec();
+                    let n = rsa.n.as_bytes().to_vec();
+                    buffer
+                        .push_u32_be((4 + SSH_RSA.0.len() + mpint_len(&n) + mpint_len(&e)) as u32);
+                    buffer.extend_ssh_string(SSH_RSA.0.as_bytes());
+                    buffer.extend_ssh_mpint(&e);
+                    buffer.extend_ssh_mpint(&n);
+                }
+                _ => unimplemented!(),
+            },
         }
     }
 }
