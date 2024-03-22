@@ -351,15 +351,15 @@ impl PublicKey {
                     .is_ok()
             }
             PublicKey::Certificate(ref cert) => match cert.public_key() {
-                ssh_key::public::KeyData::Ecdsa(_) => todo!(),
+                ssh_key::public::KeyData::Ecdsa(_) => false,
                 ssh_key::public::KeyData::Ed25519(k) => {
                     match ssh_key::Signature::new(ssh_key::Algorithm::Ed25519, sig) {
                         Ok(sig) => k.verify(buffer, &sig).is_ok(),
                         Err(_) => false,
                     }
                 }
-                ssh_key::public::KeyData::Rsa(_) => todo!(),
-                _ => unimplemented!(),
+                ssh_key::public::KeyData::Rsa(_) => false,
+                _ => false,
             },
         }
     }

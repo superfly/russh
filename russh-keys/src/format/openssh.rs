@@ -93,11 +93,6 @@ pub fn decode_openssh(secret: &[u8], password: Option<&str>) -> Result<key::KeyP
     }
 }
 
-pub fn decode_openssh_cert(cert: &str) -> Result<ssh_key::Certificate, Error> {
-    // ssh-ed25519-cert-v01@openssh.com
-    cert.parse().map_err(Error::from)
-}
-
 use aes::*;
 
 fn decrypt_secret_key(
