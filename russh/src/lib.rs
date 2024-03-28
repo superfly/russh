@@ -277,7 +277,7 @@ pub enum Error {
     #[error(transparent)]
     Keys(#[from] russh_keys::Error),
 
-    #[error(transparent)]
+    #[error("io: {0}")]
     IO(#[from] std::io::Error),
 
     #[error(transparent)]

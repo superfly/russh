@@ -183,7 +183,15 @@ pub(crate) async fn read<'a, R: AsyncRead + Unpin>(
 ) -> Result<usize, Error> {
     if buffer.len == 0 {
         let mut len = [0; 4];
-        stream.read_exact(&mut len).await?;
+        match stream.read_exact(&mut len).await {
+            Ok(t) => t,
+            Err(e) => match e.kind() {
+                std::io::ErrorKind::UnexpectedEof => return Ok(0),
+                _ => {
+                    return Err(e.into());
+                }
+            },
+        };
         debug!("reading, len = {:?}", len);
         {
             let seqn = buffer.seqn.0;
