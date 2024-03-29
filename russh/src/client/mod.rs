@@ -1705,3 +1705,114 @@ pub trait Handler: Sized + Send {
         }
     }
 }
+// CS7
+// 7 bit mode.
+// CS8
+// 8 bit mode.
+// ECHO
+// Enable echoing.
+// ECHOCTL
+// Echo control characters as ^(Char).
+// ECHOE
+// Visually erase chars.
+// ECHOK
+// Kill character discards current line.
+// ECHOKE
+// Visual erase for line kill.
+// ECHONL
+// Echo NL even if ECHO is off.
+// ICANON
+// Canonicalize input lines.
+// ICRNL
+// Map CR to NL on input.
+// IEXTEN
+// Enable extensions.
+// IGNCR
+// Ignore CR on input.
+// IGNPAR
+// The ignore parity flag.
+// IMAXBEL
+// Ring bell on input queue full.
+// INLCR
+// Map NL into CR on input.
+// INPCK
+// Enable checking of parity errors.
+// ISIG
+// Enable signals INTR, QUIT, [D]SUSP.
+// ISTRIP
+// Strip 8th bit off characters.
+// IUCLC
+// Translate uppercase characters to lowercase.
+// IUTF8
+// IXANY
+// Any char will restart after stop.
+// IXOFF
+// Enable input flow control.
+// IXON
+// Enable output flow control.
+// NOFLSH
+// Don't flush after interrupt.
+// OCRNL
+// Translate carriage return to newline (output).
+// OLCUC
+// Convert lowercase to uppercase.
+// ONLCR
+// Map NL to CR-NL.
+// ONLRET
+// Newline performs a carriage return (output).
+// ONOCR
+// Translate newline to carriage return-newline (output).
+// OPOST
+// Enable output processing.
+// PARENB
+// Parity enable.
+// PARMRK
+// Mark parity and framing errors.
+// PARODD
+// Odd parity, else even.
+// PENDIN
+// Retype pending input.
+// TOSTOP
+// Stop background jobs from output.
+// TTY_OP_ISPEED
+// Specifies the input baud rate in bits per second.
+// TTY_OP_OSPEED
+// Specifies the output baud rate in bits per second.
+// VDISCARD
+// Toggles the flushing of terminal output.
+// VDSUSP
+// Another suspend character.
+// VEOF
+// End-of-file character (sends EOF from the terminal).
+// VEOL
+// End-of-line character in addition to carriage return and/or line-feed.
+// VEOL2
+// Additional end-of-line character.
+// VERASE
+// Erase the character to left of the cursor.
+// VFLUSH
+// Character to flush output.
+// VINTR
+// Interrupt character; 255 if none.
+// VKILL
+// Kill the current input line.
+// VLNEXT
+// Enter the next character typed literally, even if it is a special character
+// VQUIT
+// The quit character (sends SIGQUIT signal on POSIX systems).
+// VREPRINT
+// Reprints the current input line.
+// VSTART
+// Continues paused output (normally control-Q).
+// VSTATUS
+// Prints system status line (load, command, pid, etc).
+// VSTOP
+// Pauses output (normally control-S).
+// VSUSP
+// Suspends the current program.
+// VSWTCH
+// Switch to a different shell layer.
+// VWERASE
+// Erases a word left of cursor.
+// XCASE
+// Enable input and output of uppercase characters by preceding their lowercase equivalents with "\".

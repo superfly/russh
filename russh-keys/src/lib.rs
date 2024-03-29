@@ -310,6 +310,15 @@ impl PublicKeyBase64 for key::KeyPair {
                 s.write_u32::<BigEndian>(public.len() as u32).unwrap();
                 s.extend_from_slice(public.as_slice());
             }
+            key::KeyPair::Certificate(_, ref key) => match key.key_data() {
+                ssh_key::private::KeypairData::Ed25519(kp) => {
+                    let public = kp.public.0;
+                    #[allow(clippy::unwrap_used)] // Vec<>.write can't fail
+                    s.write_u32::<BigEndian>(public.len() as u32).unwrap();
+                    s.extend_from_slice(public.as_slice());
+                }
+                _ => unimplemented!(),
+            },
             #[cfg(feature = "openssl")]
             key::KeyPair::RSA { ref key, .. } => {
                 use encoding::Encoding;
@@ -935,6 +944,7 @@ Cog3JMeTrb3LiPHgN6gU2P30MRp6L1j1J/MtlOAr5rux
                 let sig = &b[b.len() - 64..];
                 assert!(public.verify_detached(a, sig));
             }
+            key::KeyPair::Certificate(_, _) => {}
             #[cfg(feature = "openssl")]
             _ => {}
         }

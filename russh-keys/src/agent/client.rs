@@ -119,6 +119,17 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AgentClient<S> {
                 self.buf.extend(pair.verifying_key().as_bytes());
                 self.buf.extend_ssh_string(b"");
             }
+            key::KeyPair::Certificate(_, ref secret) => match secret.key_data() {
+                ssh_key::private::KeypairData::Ed25519(pair) => {
+                    self.buf.extend_ssh_string(b"ssh-ed25519");
+                    self.buf.extend_ssh_string(pair.public.0.as_slice());
+                    self.buf.push_u32_be(64);
+                    self.buf.extend(pair.private.to_bytes().as_slice());
+                    self.buf.extend(pair.public.0.as_slice());
+                    self.buf.extend_ssh_string(b"");
+                }
+                _ => unimplemented!(),
+            },
             #[cfg(feature = "openssl")]
             #[allow(clippy::unwrap_used)] // key is known to be private
             key::KeyPair::RSA { ref key, .. } => {

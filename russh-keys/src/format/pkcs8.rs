@@ -264,6 +264,7 @@ fn test_read_write_pkcs8() {
     let key = decode_pkcs8(&ciphertext, Some(password)).unwrap();
     match key {
         key::KeyPair::Ed25519 { .. } => println!("Ed25519"),
+        key::KeyPair::Certificate { .. } => println!("cert"),
         #[cfg(feature = "openssl")]
         key::KeyPair::RSA { .. } => println!("RSA"),
     }
@@ -316,6 +317,13 @@ pub fn encode_pkcs8(key: &key::KeyPair) -> Vec<u8> {
     yasna::construct_der(|writer| {
         writer.write_sequence(|writer| match *key {
             key::KeyPair::Ed25519(ref pair) => write_key_v1(writer, pair),
+            key::KeyPair::Certificate(_, ref secret) => match secret.key_data() {
+                ssh_key::private::KeypairData::Ed25519(pair) => write_key_v1(
+                    writer,
+                    &ed25519_dalek::SigningKey::from_bytes(&pair.private.to_bytes()),
+                ),
+                _ => unimplemented!(),
+            },
             #[cfg(feature = "openssl")]
             key::KeyPair::RSA { ref key, .. } => write_key_v0(writer, key),
         })

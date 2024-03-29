@@ -55,6 +55,7 @@ tokio = { version = "1.17.0", features = [
 ] }
 tokio-util = "0.7"
 ssh-key = { version = "0.6.5", features = ["ed25519"] }
+ssh-encoding = "0.2"
 
 [dev-dependencies]
 anyhow = "1.0"

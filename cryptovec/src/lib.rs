@@ -415,6 +415,13 @@ impl CryptoVec {
     }
 }
 
+impl ssh_encoding::Writer for CryptoVec {
+    fn write(&mut self, bytes: &[u8]) -> ssh_encoding::Result<()> {
+        self.extend(bytes);
+        Ok(())
+    }
+}
+
 impl Drop for CryptoVec {
     fn drop(&mut self) {
         if self.capacity > 0 {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 
 use ed25519_dalek::{Signer, Verifier};
 #[cfg(feature = "openssl")]
@@ -45,6 +45,8 @@ pub const ECDSA_SHA2_NISTP384: Name = Name("ecdsa-sha2-nistp384");
 pub const ECDSA_SHA2_NISTP521: Name = Name("ecdsa-sha2-nistp521");
 /// The name of the Ed25519 algorithm for SSH.
 pub const ED25519: Name = Name("ssh-ed25519");
+/// The name of the Ed25519 algorithm for SSH.
+pub const ED25519_CERT: Name = Name("ssh-ed25519-cert-v01@openssh.com");
 /// The name of the ssh-sha2-512 algorithm for SSH.
 pub const RSA_SHA2_512: Name = Name("rsa-sha2-512");
 /// The name of the ssh-sha2-256 algorithm for SSH.
@@ -248,7 +250,7 @@ impl PublicKey {
             b"ssh-ed25519-cert-v01@openssh.com" => ssh_key::Certificate::from_bytes(pubkey)
                 .map(PublicKey::Certificate)
                 .map_err(|e| {
-                    log::error!("could not part cert from bytes: {e}");
+                    log::error!("could not parse cert from bytes: {e}");
                     Error::CouldNotReadKey
                 }),
             _ => Err(Error::CouldNotReadKey),
@@ -264,14 +266,7 @@ impl PublicKey {
             PublicKey::P256(_) => ECDSA_SHA2_NISTP256.0,
             PublicKey::P521(_) => ECDSA_SHA2_NISTP521.0,
             PublicKey::Certificate(ref c) => match c.algorithm() {
-                ssh_key::Algorithm::Ecdsa { curve } => match curve {
-                    ssh_key::EcdsaCurve::NistP256 => ECDSA_SHA2_NISTP256.0,
-                    ssh_key::EcdsaCurve::NistP521 => ECDSA_SHA2_NISTP521.0,
-                    ssh_key::EcdsaCurve::NistP384 => unimplemented!(),
-                },
-                ssh_key::Algorithm::Ed25519 | ssh_key::Algorithm::SkEd25519 => ED25519.0,
-                ssh_key::Algorithm::Rsa { hash } => hash.map(|h| h.as_str()).unwrap_or("ssh-rsa"),
-                ssh_key::Algorithm::SkEcdsaSha2NistP256 => ECDSA_SHA2_NISTP256.0,
+                ssh_key::Algorithm::Ed25519 => ED25519_CERT.0,
                 _ => unimplemented!(),
             },
         }
@@ -404,6 +399,7 @@ impl Verify for PublicKey {
 #[allow(clippy::large_enum_variant)]
 pub enum KeyPair {
     Ed25519(ed25519_dalek::SigningKey),
+    Certificate(ssh_key::Certificate, ssh_key::PrivateKey),
     #[cfg(feature = "openssl")]
     RSA {
         key: openssl::rsa::Rsa<Private>,
@@ -418,6 +414,7 @@ impl Clone for KeyPair {
             Self::Ed25519(kp) => {
                 Self::Ed25519(ed25519_dalek::SigningKey::from_bytes(&kp.to_bytes()))
             }
+            Self::Certificate(cert, kp) => Self::Certificate(cert.clone(), kp.clone()),
             #[cfg(feature = "openssl")]
             Self::RSA { key, hash } => Self::RSA {
                 key: key.clone(),
@@ -434,6 +431,11 @@ impl std::fmt::Debug for KeyPair {
                 f,
                 "Ed25519 {{ public: {:?}, secret: (hidden) }}",
                 key.verifying_key().as_bytes()
+            ),
+            KeyPair::Certificate(ref cert, _) => write!(
+                f,
+                "Certificate {{ public: {}, secret: (hidden) }}",
+                cert.public_key().fingerprint(Default::default())
             ),
             #[cfg(feature = "openssl")]
             KeyPair::RSA { .. } => write!(f, "RSA {{ (hidden) }}"),
@@ -452,6 +454,7 @@ impl KeyPair {
     pub fn clone_public_key(&self) -> Result<PublicKey, Error> {
         Ok(match self {
             KeyPair::Ed25519(ref key) => PublicKey::Ed25519(key.verifying_key()),
+            KeyPair::Certificate(ref cert, _) => PublicKey::Certificate(cert.clone()),
             #[cfg(feature = "openssl")]
             KeyPair::RSA { ref key, ref hash } => {
                 use openssl::pkey::PKey;
@@ -469,6 +472,10 @@ impl KeyPair {
     pub fn name(&self) -> &'static str {
         match *self {
             KeyPair::Ed25519(_) => ED25519.0,
+            KeyPair::Certificate(ref cert, _) => match cert.algorithm() {
+                ssh_key::Algorithm::Ed25519 => ED25519_CERT.0,
+                _ => unimplemented!(),
+            },
             #[cfg(feature = "openssl")]
             KeyPair::RSA { ref hash, .. } => hash.name().0,
         }
@@ -497,6 +504,15 @@ impl KeyPair {
             KeyPair::Ed25519(ref secret) => Ok(Signature::Ed25519(SignatureBytes(
                 secret.sign(to_sign).to_bytes(),
             ))),
+            #[allow(clippy::unwrap_used)]
+            KeyPair::Certificate(_, ref secret) => Ok(Signature::Ed25519(SignatureBytes(
+                secret
+                    .key_data()
+                    .sign(to_sign)
+                    .as_bytes()
+                    .try_into()
+                    .unwrap(),
+            ))),
             #[cfg(feature = "openssl")]
             KeyPair::RSA { ref key, ref hash } => Ok(Signature::RSA {
                 bytes: rsa_signature(hash, key, to_sign)?,
@@ -522,6 +538,13 @@ impl KeyPair {
                 buffer.extend_ssh_string(ED25519.0.as_bytes());
                 buffer.extend_ssh_string(signature.to_bytes().as_slice());
             }
+            KeyPair::Certificate(_, ref secret) => {
+                let signature = secret.key_data().sign(to_sign.as_ref());
+
+                buffer.push_u32_be((ED25519.0.len() + signature.as_bytes().len() + 8) as u32);
+                buffer.extend_ssh_string(ED25519.0.as_bytes());
+                buffer.extend_ssh_string(signature.as_bytes());
+            }
             #[cfg(feature = "openssl")]
             KeyPair::RSA { ref key, ref hash } => {
                 // https://tools.ietf.org/html/draft-rsa-dsa-sha2-256-02#section-2.2
@@ -546,6 +569,13 @@ impl KeyPair {
                 buffer.push_u32_be((ED25519.0.len() + signature.to_bytes().len() + 8) as u32);
                 buffer.extend_ssh_string(ED25519.0.as_bytes());
                 buffer.extend_ssh_string(signature.to_bytes().as_slice());
+            }
+            KeyPair::Certificate(_, ref secret) => {
+                let signature = secret.key_data().sign(buffer);
+
+                buffer.push_u32_be((ED25519.0.len() + signature.as_bytes().len() + 8) as u32);
+                buffer.extend_ssh_string(ED25519.0.as_bytes());
+                buffer.extend_ssh_string(signature.as_bytes());
             }
             #[cfg(feature = "openssl")]
             KeyPair::RSA { ref key, ref hash } => {

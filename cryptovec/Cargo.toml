@@ -12,6 +12,7 @@ rust-version = "1.60"
 
 [dependencies]
 libc = "0.2"
+ssh-encoding = "0.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = {version = "0.3", features = ["basetsd", "minwindef", "memoryapi"]}
